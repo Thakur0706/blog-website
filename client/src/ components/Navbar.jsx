@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react'
-import { Image } from '@imagekit/react';
+import React, { useState } from 'react'
 import { SignedIn, SignedOut, SignInButton, useAuth, UserButton } from '@clerk/clerk-react';
-import { Edit, MenuIcon, X } from 'lucide-react'
+import { Edit, MenuIcon, X, MessageCircle } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom';
+import { useSocket } from '../context/SocketContext';
+
 const Navbar = () => {
     const [open, setOpen] = useState(false)
     const { getToken } = useAuth();
     const navigate = useNavigate();
+    const { unreadCount } = useSocket();
 
     return (
         <div className='border border-gray-300 w-full mt-5 mb-5 md:h-20 h-16 rounded-2xl flex items-center justify-between px-5'>
             {/* logo */}
             <Link to="/" className='text-2xl font-bold flex items-center gap-4'>
-                {/* <Image urlEndpoint={import.meta.env.VITE_IK_URL_ENDPOINT} className='w-8 h-8 rounded-full' loading="lazy" alt="Logo" src="/ISAGI YOICHI.jpeg" /> */}
                 <span>Draft</span>
             </Link>
             {/* mobile menu */}
             <div className='md:hidden'>
                 <div className='cursor-pointer' onClick={() => setOpen(!open)}>
-                    {/* Only show hamburger here, close button will be inside the menu */}
                     <MenuIcon />
                 </div>
                 {/* mobile list items */}
@@ -31,23 +31,32 @@ const Navbar = () => {
                     <Link to="/posts?sort=popular" onClick={() => setOpen(false)}>Most Popular</Link>
                     <Link to="/" onClick={() => setOpen(false)}>About</Link>
                     <SignedOut>
-                    <Link to="/login">
-                        <button className='bg-primary text-primary-foreground px-5 py-2 rounded-2xl'>Login 👋</button>
-                    </Link>
-                </SignedOut>
-                <SignedIn>
-                    <Link to="/posts?saved=true" onClick={() => setOpen(false)}>Saved</Link>
-                    {/* <UserButton /> */}
-                    <UserButton showName={true}>
-                        <UserButton.MenuItems>
-                            <UserButton.Action
-                                label="Write"
-                                labelIcon={<Edit size={20} />}
-                                onClick={() => navigate('/write')}
-                            />
-                        </UserButton.MenuItems>
-                    </UserButton>
-                </SignedIn>
+                        <Link to="/login">
+                            <button className='bg-primary text-primary-foreground px-5 py-2 rounded-2xl'>Login 👋</button>
+                        </Link>
+                    </SignedOut>
+                    <SignedIn>
+                        <Link to="/posts?saved=true" onClick={() => setOpen(false)}>Saved</Link>
+                        {/* Messages link */}
+                        <Link to="/chat" onClick={() => setOpen(false)} className="relative flex items-center gap-1">
+                            <MessageCircle className="w-5 h-5" />
+                            <span>Messages</span>
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-2 -right-3 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+                        </Link>
+                        <UserButton showName={true}>
+                            <UserButton.MenuItems>
+                                <UserButton.Action
+                                    label="Write"
+                                    labelIcon={<Edit size={20} />}
+                                    onClick={() => navigate('/write')}
+                                />
+                            </UserButton.MenuItems>
+                        </UserButton>
+                    </SignedIn>
                 </div>
             </div>
             {/* desktop menu */}
@@ -63,7 +72,15 @@ const Navbar = () => {
                 </SignedOut>
                 <SignedIn>
                     <Link to="/posts?saved=true">Saved</Link>
-                    {/* <UserButton /> */}
+                    {/* Messages Icon with badge */}
+                    <Link to="/chat" className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors">
+                        <MessageCircle className="w-5 h-5 text-gray-700" />
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none animate-pulse">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </Link>
                     <UserButton>
                         <UserButton.MenuItems>
                             <UserButton.Action

@@ -1,5 +1,5 @@
 import Image from '../ components/CustomImage'
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import PostMenuActions from '../ components/PostMenuActions'
 import Search from '../ components/Search'
@@ -7,6 +7,9 @@ import Comments from '../ components/Comments'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { format } from 'timeago.js'
+import SharePostModal from '../ components/SharePostModal'
+import { SignedIn } from '@clerk/clerk-react'
+import { Send } from 'lucide-react'
 
 const fetchPost = async (slug) => {
   const res = await axios.get(`${import.meta.env.VITE_API_URL}/posts/${slug}`);
@@ -15,6 +18,7 @@ const fetchPost = async (slug) => {
 }
 
 const SinglePostPage = () => {
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const { slug } = useParams();
 
@@ -74,13 +78,22 @@ const SinglePostPage = () => {
             <p className="text-xs text-neutral-500">
               Lorem ipsum dolor sit amet consectetur
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Link>
                 <div className='w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs'>FB</div>
               </Link>
               <Link>
                 <div className='w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold text-xs'>X</div>
               </Link>
+              <SignedIn>
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className='w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white hover:opacity-90 transition-opacity'
+                  title="Send post in chat"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </SignedIn>
             </div>
           </div>
           <PostMenuActions post={data} />
@@ -97,6 +110,9 @@ const SinglePostPage = () => {
         </div>
       </div>
       <Comments postId={data._id} />
+      {showShareModal && (
+        <SharePostModal post={data} onClose={() => setShowShareModal(false)} />
+      )}
     </div>
 
 

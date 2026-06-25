@@ -10,12 +10,14 @@ import Register from './pages/Register.jsx'
 import { RouterProvider } from 'react-router-dom'
 import HomePage from './pages/HomePage.jsx'
 import MainLayout from './layouts/MainLayout.jsx'
+import ChatPage from './pages/ChatPage.jsx'
 import { StrictMode } from 'react';
 import {
   QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query'
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
+import { SocketProvider } from './context/SocketContext.jsx';
 
 const queryClient = new QueryClient()
 
@@ -53,7 +55,11 @@ const router = createBrowserRouter([
     {
       path:'/login',
       element:<LoginPage/>
-    }
+    },
+    {
+      path:'/chat',
+      element:<ChatPage/>
+    },
       ]
     }
 ]);
@@ -62,8 +68,10 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
       <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
         <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <ToastContainer position="bottom-right"/>
+          <SocketProvider>
+            <RouterProvider router={router} />
+            <ToastContainer position="bottom-right"/>
+          </SocketProvider>
         </QueryClientProvider>
       </ClerkProvider>
   </StrictMode>
