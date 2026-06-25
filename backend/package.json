@@ -1,0 +1,28 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@clerk/express": "^1.7.62",
+    "@google/genai": "^1.37.0",
+    "@tanstack/react-query": "^5.90.16",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "imagekit": "^6.0.0",
+    "mongoose": "^9.1.2",
+    "nodemon": "^3.1.11",
+    "svix": "^1.84.1"
+  }
+}
