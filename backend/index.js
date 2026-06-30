@@ -131,11 +131,6 @@ app.use(cors({
   credentials: true,
 }));
 
-app.options('*', cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true,
-}));
-
 app.use(clerkMiddleware());
 app.use("/webhooks", webhookRouter);
 app.use(express.json());
