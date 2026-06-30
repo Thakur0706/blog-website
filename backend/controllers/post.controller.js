@@ -118,13 +118,15 @@ const createPost = async (req, res) => {
     // Attempt to sync user from Clerk on the fly
     try {
       const clerkUser = await clerkClient.users.getUser(clerkUserId);
-      user = new userModel({
-        clerkId: clerkUserId,
-        username:
-          clerkUser.username || clerkUser.emailAddresses[0].emailAddress,
-        email: clerkUser.emailAddresses[0].emailAddress,
-        img: clerkUser.imageUrl,
-      });
+        const username = clerkUser.username ||
+                         (clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : null) ||
+                         clerkUser.emailAddresses[0].emailAddress;
+        user = new userModel({
+          clerkId: clerkUserId,
+          username: username,
+          email: clerkUser.emailAddresses[0].emailAddress,
+          img: clerkUser.imageUrl,
+        });
       await user.save();
     } catch (syncError) {
       console.error("User sync failed:", syncError);

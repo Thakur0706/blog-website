@@ -28,11 +28,15 @@ const ClerkWebhook = async(req,res)=>{
     }
 
     if(evt.type === 'user.created'){
+        const username = evt.data.username 
+            || (evt.data.first_name ? `${evt.data.first_name} ${evt.data.last_name || ''}`.trim() : null)
+            || evt.data.email_addresses[0].email_address;
+        
         const newUser = new userModel({
             clerkId: evt.data.id,
-            username: evt.data.username || evt.data.email_addresses[0].email_address,
-            email:evt.data.email_addresses[0].email_address,
-            img:evt.data.profile_image_url
+            username: username,
+            email: evt.data.email_addresses[0].email_address,
+            img: evt.data.image_url || evt.data.profile_image_url
         })
 
         await newUser.save()

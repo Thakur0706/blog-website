@@ -27,9 +27,24 @@ const getChats = async (req, res, next) => {
               username: dbUser.username,
               img: dbUser.img || null,
             };
+          } else {
+            // Fallback: If user is not in our DB (e.g. webhook issue/delay), fetch from Clerk
+            const clerkUser = await clerkClient.users.getUser(otherParticipantId);
+            if (clerkUser) {
+              const username = clerkUser.username || 
+                               (clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : null) || 
+                               (clerkUser.emailAddresses && clerkUser.emailAddresses[0]?.emailAddress) ||
+                               "Unknown";
+              otherUser = {
+                clerkId: clerkUser.id,
+                username: username,
+                img: clerkUser.imageUrl || null,
+              };
+            }
           }
         } catch (e) {
           // ignore
+          console.error("Error fetching other participant:", e);
         }
         return {
           _id: chat._id,

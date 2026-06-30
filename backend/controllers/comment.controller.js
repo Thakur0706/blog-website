@@ -26,9 +26,12 @@ async function addComment(req, res) {
   if (!user) {
     try {
       const clerkUser = await clerkClient.users.getUser(clerkUserId);
+      const username = clerkUser.username ||
+                       (clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : null) ||
+                       clerkUser.emailAddresses[0].emailAddress;
       user = new userModel({
         clerkId: clerkUserId,
-        username: clerkUser.username || clerkUser.emailAddresses[0].emailAddress,
+        username: username,
         email: clerkUser.emailAddresses[0].emailAddress,
         img: clerkUser.imageUrl,
       });

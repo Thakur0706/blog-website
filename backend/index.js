@@ -126,17 +126,22 @@ io.on("connection", (socket) => {
   });
 });
 
-app.use(cors({ origin: process.env.CLIENT_URL }));
+app.use(cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true,
+}));
+
+app.options('*', cors({
+  origin: process.env.CLIENT_URL,
+  credentials: true,
+}));
+
 app.use(clerkMiddleware());
 app.use("/webhooks", webhookRouter);
 app.use(express.json());
 
+// Remove the manual duplicate CORS headers block since the cors() middleware handles it
 app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
-  );
   next();
 });
 
