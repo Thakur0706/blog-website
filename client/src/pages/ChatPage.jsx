@@ -209,7 +209,7 @@ const ChatPage = () => {
   const totalUnread = chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
-    <div className="flex h-[calc(100vh-120px)] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
+    <div className="flex h-[calc(100dvh-120px)] md:h-[calc(100vh-120px)] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
       {/* ── LEFT SIDEBAR ── */}
       <div
         className={`
@@ -409,7 +409,7 @@ const ChatPage = () => {
                       {/* Text bubble */}
                       {msg.content && (
                         <div
-                          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm
+                          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm break-words
                             ${isMine
                               ? "bg-blue-500 text-white rounded-br-sm"
                               : "bg-white text-gray-800 rounded-bl-sm border border-gray-100"

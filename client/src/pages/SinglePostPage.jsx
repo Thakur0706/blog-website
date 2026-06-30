@@ -35,8 +35,8 @@ const SinglePostPage = () => {
 
   return (
     <div className='flex flex-col gap-4'>
-      <div className='flex gap-8'>
-        <div className='lg:w-3/5 flex flex-col gap-8'>
+      <div className='flex flex-col lg:flex-row gap-8'>
+        <div className='w-full lg:w-3/5 flex flex-col gap-8'>
           <h1 className='text-xl md:text-3xl lg:text-4xl font-semibold'>{data.title}</h1>
           <div className='flex items-center gap-2 text-xs text-neutral-400 font-medium'>
             <span>Written by</span>
@@ -57,11 +57,11 @@ const SinglePostPage = () => {
       {/* content */}
       <div className='flex flex-col lg:flex-row gap-8'>
         {/* text */}
-        <div className=' lg:w-3/5 lg:text-lg text-neutral-700 space-y-4 text-justify prose max-w-none wrap-break-word'>
+        <div className='w-full lg:w-3/5 lg:text-lg text-neutral-700 space-y-4 text-justify prose prose-sm md:prose-base max-w-none break-words overflow-x-hidden'>
           <div className='w-full overflow-hidden' dangerouslySetInnerHTML={{ __html: data.content }}></div>
         </div>
         {/* menu */}
-        <div className="lg:w-2/5 px-4 h-max sticky top-8 self-start">
+        <div className="w-full lg:w-2/5 px-4 h-max lg:sticky top-8 self-start">
           <h1 className="mb-4 text-sm font-medium">Author</h1>
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4">

@@ -7,7 +7,7 @@ const HomePage = () => {
   return (
     <div className='mt-4 flex flex-col gap-4'>
       {/* breadcrum */}
-      <div className='flex gap-4'>
+      <div className='flex flex-wrap gap-2 md:gap-4 items-center text-sm md:text-base'>
         <Link to="/">Home</Link>
         <span>•</span>
         <span className='font-medium text-neutral-500'>Blogs And Articles</span>
@@ -17,7 +17,7 @@ const HomePage = () => {
       <div className='flex items-center justify-between'>
         {/* title */}
         <div className='w-full md:w-2/3'>
-          <h1 className='text-2xl md:text-5xl lg:text-6xl font-bold'>Where stories, ideas, and projects <span className='text-neutral-600 opacity-70'>come together</span></h1>
+          <h1 className='text-3xl md:text-5xl lg:text-6xl font-bold'>Where stories, ideas, and projects <span className='text-neutral-600 opacity-70'>come together</span></h1>
           <p className='text-neutral-500 mt-5 text-sm md:text-lg'>A community-driven space to write, explore, and share knowledge across tech, design, and beyond.</p>
         </div>
         {/* write page */}

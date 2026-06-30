@@ -112,7 +112,7 @@ const Write = () => {
 
 
   return (
-    <div className='h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] flex flex-col gap-4'>
+    <div className='min-h-[calc(100dvh-64px)] md:min-h-[calc(100vh-80px)] flex flex-col gap-4'>
       <h1 className='text-xl font-bold'>Create Post</h1>
       <form onSubmit={handleSubmit} className='flex flex-col gap-4 flex-1 mb-6 '>
         <Upload type="image" setProgress={setProgress} setData={setCover} >
