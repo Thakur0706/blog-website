@@ -118,6 +118,28 @@ io.on("connection", (socket) => {
     }
   });
 
+  // ──── Video Call Signaling ────
+  socket.on("callUser", ({ userToCall, signalData, from, callerName, callerImg }) => {
+    io.to(userToCall).emit("callUser", {
+      signal: signalData,
+      from,
+      callerName,
+      callerImg,
+    });
+  });
+
+  socket.on("answerCall", ({ to, signal }) => {
+    io.to(to).emit("callAccepted", { signal });
+  });
+
+  socket.on("iceCandidate", ({ to, candidate }) => {
+    io.to(to).emit("iceCandidate", { candidate });
+  });
+
+  socket.on("endCall", ({ to }) => {
+    io.to(to).emit("callEnded");
+  });
+
   socket.on("disconnect", () => {
     if (userId) {
       onlineUsers.delete(userId);

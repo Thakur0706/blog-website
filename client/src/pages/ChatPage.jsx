@@ -3,13 +3,32 @@ import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
 import { format } from "timeago.js";
 import { useSocket } from "../context/SocketContext";
-import { Search, Send, X, ChevronLeft, MessageCircle, Image as ImageIcon } from "lucide-react";
+import {
+  Search,
+  Send,
+  X,
+  ChevronLeft,
+  MessageCircle,
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  PhoneOff,
+  Phone,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 // ────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────
 const API = import.meta.env.VITE_API_URL;
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
 
 // ────────────────────────────────────────────────
 // ChatPage
@@ -28,6 +47,20 @@ const ChatPage = () => {
   const [typingUser, setTypingUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(false);
+
+  // ──── Video Call State ────
+  const [callStatus, setCallStatus] = useState("idle"); // idle | calling | receiving | active
+  const [incomingCall, setIncomingCall] = useState(null); // { signal, from, callerName, callerImg }
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const callTimerRef = useRef(null);
+  const callerIdRef = useRef(null); // who we are calling / who called us
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -91,6 +124,232 @@ const ChatPage = () => {
       socket.off("unreadUpdate");
     };
   }, [socket, activeChat, userId]);
+
+  // ──── Video Call Socket Listeners ────
+  useEffect(() => {
+    if (!socket) return;
+
+    // Someone is calling us
+    socket.on("callUser", ({ signal, from, callerName, callerImg }) => {
+      // Only show if we're not already in a call
+      if (callStatus === "idle") {
+        setIncomingCall({ signal, from, callerName, callerImg });
+        setCallStatus("receiving");
+      }
+    });
+
+    // Our call was accepted
+    socket.on("callAccepted", async ({ signal }) => {
+      try {
+        const pc = peerConnectionRef.current;
+        if (pc && signal) {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          setCallStatus("active");
+          startCallTimer();
+        }
+      } catch (err) {
+        console.error("Error setting remote description:", err);
+      }
+    });
+
+    // ICE candidate from the other peer
+    socket.on("iceCandidate", async ({ candidate }) => {
+      try {
+        const pc = peerConnectionRef.current;
+        if (pc && candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+      } catch (err) {
+        console.error("Error adding ICE candidate:", err);
+      }
+    });
+
+    // Other user ended the call
+    socket.on("callEnded", () => {
+      cleanupCall();
+    });
+
+    return () => {
+      socket.off("callUser");
+      socket.off("callAccepted");
+      socket.off("iceCandidate");
+      socket.off("callEnded");
+    };
+  }, [socket, callStatus]);
+
+  // ──── Call Timer ────
+  const startCallTimer = () => {
+    setCallDuration(0);
+    callTimerRef.current = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+  };
+
+  const formatDuration = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  // ──── Cleanup Call ────
+  const cleanupCall = () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (callTimerRef.current) clearInterval(callTimerRef.current);
+
+    setCallStatus("idle");
+    setIncomingCall(null);
+    setIsMuted(false);
+    setIsVideoOff(false);
+    setCallDuration(0);
+    callerIdRef.current = null;
+  };
+
+  // ──── Create Peer Connection ────
+  const createPeerConnection = (remoteUserId) => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+
+    // Send ICE candidates to the other peer via socket
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("iceCandidate", {
+          to: remoteUserId,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    // When we receive the remote stream
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+        cleanupCall();
+      }
+    };
+
+    return pc;
+  };
+
+  // ──── Start a Call (Caller) ────
+  const startCall = async () => {
+    if (!activeChat?.otherUser?.clerkId || !socket) return;
+
+    const remoteUserId = activeChat.otherUser.clerkId;
+    callerIdRef.current = remoteUserId;
+
+    try {
+      // Get user media
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+      // Create peer connection
+      const pc = createPeerConnection(remoteUserId);
+      peerConnectionRef.current = pc;
+
+      // Add local tracks to the connection
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      // Create offer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      setCallStatus("calling");
+
+      // Send the offer to the other user
+      socket.emit("callUser", {
+        userToCall: remoteUserId,
+        signalData: offer,
+        from: userId,
+        callerName: "You", // The receiver will see the chat context anyway
+        callerImg: null,
+      });
+    } catch (err) {
+      console.error("Error starting call:", err);
+      cleanupCall();
+    }
+  };
+
+  // ──── Accept Incoming Call ────
+  const acceptCall = async () => {
+    if (!incomingCall || !socket) return;
+
+    const { signal, from } = incomingCall;
+    callerIdRef.current = from;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      localStreamRef.current = stream;
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+      const pc = createPeerConnection(from);
+      peerConnectionRef.current = pc;
+
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      await pc.setRemoteDescription(new RTCSessionDescription(signal));
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      socket.emit("answerCall", { to: from, signal: answer });
+
+      setCallStatus("active");
+      setIncomingCall(null);
+      startCallTimer();
+    } catch (err) {
+      console.error("Error accepting call:", err);
+      cleanupCall();
+    }
+  };
+
+  // ──── Reject / End Call ────
+  const endCall = () => {
+    const remoteId = callerIdRef.current || incomingCall?.from;
+    if (socket && remoteId) {
+      socket.emit("endCall", { to: remoteId });
+    }
+    cleanupCall();
+  };
+
+  // ──── Toggle Mute ────
+  const toggleMute = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+      });
+      setIsMuted((prev) => !prev);
+    }
+  };
+
+  // ──── Toggle Video ────
+  const toggleVideo = () => {
+    if (localStreamRef.current) {
+      localStreamRef.current.getVideoTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+      });
+      setIsVideoOff((prev) => !prev);
+    }
+  };
 
   // ──── Scroll to bottom ────
   useEffect(() => {
@@ -209,7 +468,159 @@ const ChatPage = () => {
   const totalUnread = chats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   return (
-    <div className="flex h-[calc(100dvh-120px)] md:h-[calc(100vh-120px)] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
+    <div className="flex h-[calc(100dvh-120px)] md:h-[calc(100vh-120px)] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm relative">
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* INCOMING CALL MODAL */}
+      {/* ═══════════════════════════════════════════════ */}
+      {callStatus === "receiving" && incomingCall && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 shadow-2xl flex flex-col items-center gap-5 max-w-sm w-full mx-4 animate-[slideUp_0.3s_ease-out]">
+            {/* Pulsing avatar */}
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-30" style={{ margin: "-8px" }} />
+              {incomingCall.callerImg ? (
+                <img
+                  src={incomingCall.callerImg}
+                  alt="caller"
+                  className="w-20 h-20 rounded-full object-cover ring-4 ring-green-100 relative z-10"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-2xl font-bold ring-4 ring-green-100 relative z-10">
+                  {incomingCall.callerName?.[0]?.toUpperCase() || "?"}
+                </div>
+              )}
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-gray-900">
+                {incomingCall.callerName || "Someone"}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Incoming Video Call…</p>
+            </div>
+            {/* Accept / Reject buttons */}
+            <div className="flex gap-6 mt-2">
+              <button
+                onClick={endCall}
+                className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                title="Reject"
+              >
+                <PhoneOff className="w-6 h-6" />
+              </button>
+              <button
+                onClick={acceptCall}
+                className="w-14 h-14 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center text-white shadow-lg transition-all hover:scale-105 active:scale-95"
+                title="Accept"
+              >
+                <Phone className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* ACTIVE CALL OVERLAY */}
+      {/* ═══════════════════════════════════════════════ */}
+      {(callStatus === "calling" || callStatus === "active") && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-gray-900">
+          {/* Remote video (full screen) */}
+          <div className="flex-1 relative bg-black">
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+            {callStatus === "calling" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-4">
+                <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
+                  {activeChat?.otherUser?.img ? (
+                    <img
+                      src={activeChat.otherUser.img}
+                      alt=""
+                      className="w-16 h-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl font-bold">
+                      {activeChat?.otherUser?.username?.[0]?.toUpperCase() || "?"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-lg font-semibold">
+                  Calling {activeChat?.otherUser?.username || "..."}
+                </p>
+                <div className="flex gap-1.5 mt-1">
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Call duration badge */}
+            {callStatus === "active" && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white text-sm font-mono px-4 py-1.5 rounded-full">
+                {formatDuration(callDuration)}
+              </div>
+            )}
+
+            {/* Local video (picture-in-picture) */}
+            <div className="absolute bottom-4 right-4 w-36 h-48 md:w-48 md:h-64 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-gray-800">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              {isVideoOff && (
+                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                  <VideoOff className="w-8 h-8 text-gray-500" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Call Controls Bar */}
+          <div className="flex items-center justify-center gap-4 py-5 bg-gray-900/95 backdrop-blur-sm">
+            {/* Toggle Mute */}
+            <button
+              onClick={toggleMute}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
+                isMuted
+                  ? "bg-white text-gray-900"
+                  : "bg-white/15 text-white hover:bg-white/25"
+              }`}
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </button>
+
+            {/* Toggle Video */}
+            <button
+              onClick={toggleVideo}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
+                isVideoOff
+                  ? "bg-white text-gray-900"
+                  : "bg-white/15 text-white hover:bg-white/25"
+              }`}
+              title={isVideoOff ? "Turn on camera" : "Turn off camera"}
+            >
+              {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+            </button>
+
+            {/* End Call */}
+            <button
+              onClick={endCall}
+              className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30"
+              title="End Call"
+            >
+              <PhoneOff className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── LEFT SIDEBAR ── */}
       <div
         className={`
@@ -367,7 +778,7 @@ const ChatPage = () => {
                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />
                 )}
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold text-gray-900 text-sm">{activeChat.otherUser?.username || "Unknown"}</p>
                 <p className="text-xs text-gray-400">
                   {isOnline(activeChat.otherUser?.clerkId)
@@ -375,6 +786,15 @@ const ChatPage = () => {
                     : "Offline"}
                 </p>
               </div>
+              {/* ──── VIDEO CALL BUTTON ──── */}
+              <button
+                onClick={startCall}
+                disabled={callStatus !== "idle"}
+                className="w-10 h-10 rounded-full bg-blue-50 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors group"
+                title="Start Video Call"
+              >
+                <Video className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
+              </button>
             </div>
 
             {/* Messages */}
