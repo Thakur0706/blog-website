@@ -531,104 +531,106 @@ const ChatPage = () => {
       )}
 
       {/* ═══════════════════════════════════════════════ */}
-      {/* ACTIVE CALL OVERLAY */}
+      {/* ACTIVE CALL — FLOATING WINDOW */}
       {/* ═══════════════════════════════════════════════ */}
       {(callStatus === "calling" || callStatus === "active") && (
-        <div className="absolute inset-0 z-50 flex flex-col bg-gray-900">
-          {/* Remote video (full screen) */}
-          <div className="flex-1 relative bg-black">
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-            {callStatus === "calling" && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-4">
-                <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
-                  {activeChat?.otherUser?.img ? (
-                    <img
-                      src={activeChat.otherUser.img}
-                      alt=""
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-2xl font-bold">
-                      {activeChat?.otherUser?.username?.[0]?.toUpperCase() || "?"}
-                    </span>
-                  )}
-                </div>
-                <p className="text-lg font-semibold">
-                  Calling {activeChat?.otherUser?.username || "..."}
-                </p>
-                <div className="flex gap-1.5 mt-1">
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            )}
-
-            {/* Call duration badge */}
-            {callStatus === "active" && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white text-sm font-mono px-4 py-1.5 rounded-full">
-                {formatDuration(callDuration)}
-              </div>
-            )}
-
-            {/* Local video (picture-in-picture) */}
-            <div className="absolute bottom-4 right-4 w-36 h-48 md:w-48 md:h-64 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-gray-800">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-[90%] max-w-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col bg-gray-900">
+            {/* Remote video area */}
+            <div className="relative w-full aspect-[4/3] bg-black">
               <video
-                ref={localVideoRef}
+                ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                muted
                 className="w-full h-full object-cover"
               />
-              {isVideoOff && (
-                <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                  <VideoOff className="w-8 h-8 text-gray-500" />
+              {callStatus === "calling" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 bg-gray-900">
+                  <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
+                    {activeChat?.otherUser?.img ? (
+                      <img
+                        src={activeChat.otherUser.img}
+                        alt=""
+                        className="w-14 h-14 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xl font-bold">
+                        {activeChat?.otherUser?.username?.[0]?.toUpperCase() || "?"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-base font-semibold">
+                    Calling {activeChat?.otherUser?.username || "..."}
+                  </p>
+                  <div className="flex gap-1.5">
+                    <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
                 </div>
               )}
+
+              {/* Call duration badge */}
+              {callStatus === "active" && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white text-xs font-mono px-3 py-1 rounded-full">
+                  {formatDuration(callDuration)}
+                </div>
+              )}
+
+              {/* Local video PiP */}
+              <div className="absolute bottom-3 right-3 w-24 h-32 rounded-xl overflow-hidden shadow-lg border border-white/20 bg-gray-800">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                {isVideoOff && (
+                  <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                    <VideoOff className="w-5 h-5 text-gray-500" />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Call Controls Bar */}
-          <div className="flex items-center justify-center gap-4 py-5 bg-gray-900/95 backdrop-blur-sm">
-            {/* Toggle Mute */}
-            <button
-              onClick={toggleMute}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
-                isMuted
-                  ? "bg-white text-gray-900"
-                  : "bg-white/15 text-white hover:bg-white/25"
-              }`}
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
+            {/* Call Controls Bar */}
+            <div className="flex items-center justify-center gap-3 py-3 bg-gray-900">
+              {/* Toggle Mute */}
+              <button
+                onClick={toggleMute}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
+                  isMuted
+                    ? "bg-white text-gray-900"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                }`}
+                title={isMuted ? "Unmute" : "Mute"}
+              >
+                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
 
-            {/* Toggle Video */}
-            <button
-              onClick={toggleVideo}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
-                isVideoOff
-                  ? "bg-white text-gray-900"
-                  : "bg-white/15 text-white hover:bg-white/25"
-              }`}
-              title={isVideoOff ? "Turn on camera" : "Turn off camera"}
-            >
-              {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-            </button>
+              {/* Toggle Video */}
+              <button
+                onClick={toggleVideo}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 ${
+                  isVideoOff
+                    ? "bg-white text-gray-900"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                }`}
+                title={isVideoOff ? "Turn on camera" : "Turn off camera"}
+              >
+                {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+              </button>
 
-            {/* End Call */}
-            <button
-              onClick={endCall}
-              className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30"
-              title="End Call"
-            >
-              <PhoneOff className="w-6 h-6" />
-            </button>
+              {/* End Call */}
+              <button
+                onClick={endCall}
+                className="w-11 h-11 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-500/30"
+                title="End Call"
+              >
+                <PhoneOff className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
