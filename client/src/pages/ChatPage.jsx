@@ -54,6 +54,7 @@ const ChatPage = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [remoteStream, setRemoteStream] = useState(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -177,6 +178,19 @@ const ChatPage = () => {
     };
   }, [socket, callStatus]);
 
+  // ──── Sync streams to video elements after render ────
+  useEffect(() => {
+    if ((callStatus === "calling" || callStatus === "active") && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [callStatus]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, callStatus]);
+
   // ──── Call Timer ────
   const startCallTimer = () => {
     setCallDuration(0);
@@ -210,6 +224,7 @@ const ChatPage = () => {
     setIsMuted(false);
     setIsVideoOff(false);
     setCallDuration(0);
+    setRemoteStream(null);
     callerIdRef.current = null;
   };
 
@@ -227,11 +242,9 @@ const ChatPage = () => {
       }
     };
 
-    // When we receive the remote stream
+    // When we receive the remote stream — store in state, useEffect will assign to ref
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
+      setRemoteStream(event.streams[0]);
     };
 
     pc.oniceconnectionstatechange = () => {
@@ -257,7 +270,6 @@ const ChatPage = () => {
         audio: true,
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
       // Create peer connection
       const pc = createPeerConnection(remoteUserId);
@@ -270,6 +282,7 @@ const ChatPage = () => {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // Set status FIRST so the overlay renders, then useEffect assigns stream to the video ref
       setCallStatus("calling");
 
       // Send the offer to the other user
@@ -299,7 +312,6 @@ const ChatPage = () => {
         audio: true,
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
       const pc = createPeerConnection(from);
       peerConnectionRef.current = pc;
